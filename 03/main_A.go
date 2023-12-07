@@ -1,0 +1,155 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"slices"
+	"strconv"
+	"strings"
+)
+
+type PartNumber struct {
+	partNumber       string
+	startCoordinates Coordinates
+	endCoordinates   Coordinates
+}
+
+type Coordinates struct {
+	row    int
+	column int
+}
+
+func (p PartNumber) Check(engineMatrix [][]string) (bool, [][]string) {
+	numbers := []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "."}
+	checkAdjacent := func(row int, column int, engineMatrix [][]string) bool {
+		if row > 0 {
+			if !slices.Contains(numbers, engineMatrix[row-1][column]) {
+				return true
+			}
+		}
+		if row < len(engineMatrix)-1 {
+			if !slices.Contains(numbers, engineMatrix[row+1][column]) {
+				return true
+			}
+		}
+		if column > 0 {
+			if !slices.Contains(numbers, engineMatrix[row][column-1]) {
+				return true
+			}
+		}
+		if column < len(engineMatrix[row])-1 {
+			if !slices.Contains(numbers, engineMatrix[row][column+1]) {
+				return true
+			}
+		}
+		if row > 0 && column > 0 {
+			if !slices.Contains(numbers, engineMatrix[row-1][column-1]) {
+				return true
+			}
+		}
+		if row > 0 && column < len(engineMatrix[row])-1 {
+			if !slices.Contains(numbers, engineMatrix[row-1][column+1]) {
+				return true
+			}
+		}
+		if row < len(engineMatrix)-1 && column > 0 {
+			if !slices.Contains(numbers, engineMatrix[row+1][column-1]) {
+				return true
+			}
+		}
+		if row < len(engineMatrix)-1 && column < len(engineMatrix[row])-1 {
+			if !slices.Contains(numbers, engineMatrix[row+1][column+1]) {
+				return true
+			}
+		}
+		return false
+	}
+
+	for row := p.startCoordinates.row; row <= p.endCoordinates.row; row++ {
+		for column := p.startCoordinates.column; column <= p.endCoordinates.column; column++ {
+			fmt.Println("Checking", row, column, engineMatrix[row][column])
+			if checkAdjacent(row, column, engineMatrix) {
+				return true, engineMatrix
+			} else {
+				engineMatrix[row][column] = "."
+			}
+		}
+	}
+	return false, engineMatrix
+}
+
+func (p PartNumber) GetNumber() int {
+	number, _ := strconv.Atoi(p.partNumber)
+	return number
+}
+
+func main() {
+	//Read input file
+	// fmt.Println("Args:", os.Args)
+	input, _ := os.Open("input.txt")
+	defer input.Close()
+	sc := bufio.NewScanner(input)
+
+	var engineMatrix [][]string
+	var partNumbers []PartNumber
+	for sc.Scan() {
+		var engineRow = sc.Text()
+		engineMatrix = append(engineMatrix, strings.Split(engineRow, ""))
+		partNumbers = ParsePartNumbers(engineMatrix)
+	}
+	completePartNumber := 0
+	for _, partNumber := range partNumbers {
+		result, newEngineMatrix := partNumber.Check(engineMatrix)
+		engineMatrix = newEngineMatrix
+		if result {
+			completePartNumber += partNumber.GetNumber()
+		}
+	}
+	fmt.Println("Engine:", engineMatrix)
+	fmt.Println("Part numbers:", partNumbers)
+	fmt.Println("Complete part number:", completePartNumber)
+	// Write engineMatrix to file
+	output, _ := os.Create("output.txt")
+	defer output.Close()
+	for _, row := range engineMatrix {
+		output.WriteString(strings.Join(row, ""))
+		output.WriteString("\n")
+	}
+}
+
+func ParsePartNumbers(engineMatrix [][]string) []PartNumber {
+	numbers := []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "0"}
+	// separator := "."
+	var partNumbers []PartNumber
+	var numberBuffer strings.Builder
+	var startCoordinates Coordinates
+	var endCoordinates Coordinates
+	var lastCoordinates Coordinates
+	creatingPartNumber := false
+	for rowIdx, row := range engineMatrix {
+		for columnIdx, columnNumber := range row {
+			if slices.Contains(numbers, columnNumber) {
+				if !creatingPartNumber {
+					creatingPartNumber = true
+					startCoordinates = Coordinates{rowIdx, columnIdx}
+				}
+				lastCoordinates = Coordinates{rowIdx, columnIdx}
+				numberBuffer.WriteString(columnNumber)
+			} else {
+				if creatingPartNumber {
+					creatingPartNumber = false
+					endCoordinates = lastCoordinates
+					partNumber := PartNumber{
+						partNumber:       numberBuffer.String(),
+						startCoordinates: startCoordinates,
+						endCoordinates:   endCoordinates,
+					}
+					partNumbers = append(partNumbers, partNumber)
+					numberBuffer.Reset()
+				}
+			}
+		}
+	}
+	return partNumbers
+}
